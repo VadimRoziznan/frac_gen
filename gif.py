@@ -44,7 +44,7 @@ def generate_mandelbrot(horiz, vert, absc, ordi, size):
     absc2 = absc - step * (horiz - 1) / 2
     ordi2 = ordi - step * (vert - 1) / 2
 
-    max_iter = 5000  # Увеличенное количество итераций для улучшения детализации
+    max_iter = 2500  # Увеличенное количество итераций для улучшения детализации
 
     for b in range(vert):
         n = ordi2 + b * step
@@ -114,7 +114,7 @@ num_frames = 1000  # Количество кадров в анимации
 absc = -0.743643887037158704752191506114774
 ordi = 0.131825904205311970493132056385139
 start_size = 15.5
-end_size = 0.0000001
+end_size = 0.000000001
 
 
 
