@@ -1,31 +1,33 @@
+import sys
+import numba
 import numpy as np
 from PIL import Image
 import math
 import os
-import sys
+import colorsys
 
 # Константы
-horiz = 220  # Увеличено разрешение
-vert = 170   # Увеличено разрешение
+horiz = 360  # Увеличено разрешение
+vert = 640   # Увеличено разрешение
 
-# Генерация палитры
-# Определяем палитру в формате #RRGGBB
-hex_colors = ['#182044', '#395198', '#54327D', '#C86AC6', '#082F50', '#1D8A85', '#165C5C', '#071739', '#266A73', '#03223E', '#0B2651', '#179796']
+
+# Создаем палитру с 256 цветами
 pal = np.zeros((256, 3), dtype=np.uint8)
 
-# Преобразуем hex-цвета в RGB
-def hex_to_rgb(hex_color):
-    hex_color = hex_color.lstrip('#')
-    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+# Генерируем цвета спектра
+for a in range(255):
+    # Меняем оттенок от 0 до 1 (соответствующий 0-360 градусам)
+    hue = a / 255.0
+    # Конвертируем HSV в RGB (с полной насыщенностью и яркостью)
+    r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+    # Переводим значения из диапазона 0-1 в 0-255 и сохраняем в палитру
+    pal[a] = [int(r * 255), int(g * 255), int(b * 255)]
 
-rgb_colors = [hex_to_rgb(color) for color in hex_colors]
-
-# Заполним палитру циклами через указанные цвета
-num_colors = len(rgb_colors)
-for i in range(256):
-    pal[i] = rgb_colors[i % num_colors]
+# Последний цвет белый
+pal[255] = [0, 0, 0]
 
 # Создание изображения множества Мандельброта
+@numba.jit(nopython=True)
 def generate_mandelbrot(horiz, vert, absc, ordi, size):
     image = np.zeros((vert, horiz), dtype=np.float32)
     step = size / horiz
@@ -62,7 +64,6 @@ def save_images(frames, directory):
         frame.save(filename)
         print(f"Изображение {filename} сохранено.")
 
-
 # Функция для отображения прогресс-бара
 def print_progress_bar(iteration, total, length=50, fill='█'):
     percent = ("{0:.1f}").format(100 * (iteration / float(total)))
@@ -73,17 +74,19 @@ def print_progress_bar(iteration, total, length=50, fill='█'):
 
 # Создание анимации
 frames = []
-num_frames = 100  # Количество кадров в анимации
+num_frames_in = 1000  # Количество кадров для увеличения
+num_frames_out = 1000  # Количество кадров для уменьшения
 
-# Центрирование на интересной части множества Мандельброта
-absc = -0.743643887037158704752191506114774  # Центр множества
-ordi = 0.131825904205311970493132056385139  # Центр множества
-start_size = 0.01000000
-end_size = 0.0000000001   # Не уменьшайте слишком сильно
+# Параметры увеличения
+absc = -0.743643887037158704752191506114774
+ordi = 0.131825904205311970493132056385139
+start_size = 15.5
+end_size = 0.000001
 
-for i in range(num_frames):
+# Генерация кадров увеличения
+for i in range(num_frames_in):
     # Рассчитываем размер для текущего кадра
-    size = start_size * (end_size / start_size) ** (i / (num_frames - 1))
+    size = start_size * (end_size / start_size) ** (i / (num_frames_in - 1))
 
     # Генерация изображения
     mandelbrot_image = generate_mandelbrot(horiz, vert, absc, ordi, size)
@@ -98,13 +101,33 @@ for i in range(num_frames):
 
     # Добавление кадра в список
     frames.append(Image.fromarray(colored_image, 'RGB'))
-
     # Обновление прогресс-бара
-    print_progress_bar(i + 1, num_frames)
+    print_progress_bar(i + 1, num_frames_in)
+
+# Генерация кадров уменьшения
+for i in range(num_frames_out):
+    # Рассчитываем размер для текущего кадра (уменьшение)
+    size = end_size * (start_size / end_size) ** (i / (num_frames_out - 1))
+
+    # Генерация изображения
+    mandelbrot_image = generate_mandelbrot(horiz, vert, absc, ordi, size)
+
+    # Нормализация и применение палитры
+    mandelbrot_image = mandelbrot_image / mandelbrot_image.max() * 255
+    mandelbrot_image = mandelbrot_image.astype(np.uint8)
+
+    colored_image = np.zeros((vert, horiz, 3), dtype=np.uint8)
+    for j in range(256):
+        colored_image[mandelbrot_image == j] = pal[j]
+
+    # Добавление кадра в список
+    frames.append(Image.fromarray(colored_image, 'RGB'))
+    # Обновление прогресс-бара
+    print_progress_bar(i + 1 + num_frames_in, num_frames_in + num_frames_out)
 
 # Сохранение изображений в папку
 save_images(frames, "Mandelbrot_Frames")
 
 # Сохранение анимации в виде GIF
-frames[0].save('Mandelbrot_animation09.gif', save_all=True, append_images=frames[1:], loop=0, duration=30)
-print("Анимация сохранена как Mandelbrot_animation05.gif")
+frames[0].save('Mandelbrot_animation_immortal.gif', save_all=True, append_images=frames[1:], loop=0, duration=33)
+print("\nАнимация сохранена как Mandelbrot_animation.gif")
